@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Tabs, 
@@ -40,7 +39,7 @@ const LearningLibrary = () => {
   const learningTopics = aiMemory.getLearningTopics().map(topic => ({
     id: topic.id,
     title: topic.name,
-    type: 'topic',
+    type: 'topic' as const,
     date: topic.lastStudied,
     proficiency: topic.proficiency
   }));

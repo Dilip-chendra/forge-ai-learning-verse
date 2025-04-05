@@ -30,6 +30,28 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
+type ResourceType = 'article' | 'video' | 'exercise' | 'project';
+
+type Roadmap = {
+  title: string;
+  description: string;
+  milestones: Array<{
+    title: string;
+    description: string;
+    completed: boolean;
+    resources: Array<{
+      type: ResourceType;
+      title: string;
+      url?: string;
+      duration?: string;
+    }>;
+    tasks: Array<{
+      title: string;
+      completed: boolean;
+    }>;
+  }>;
+};
+
 const timeframes = [
   { id: '30', label: '30 days', description: 'Fundamentals & quick introduction' },
   { id: '60', label: '60 days', description: 'Solid foundation with practice' },
@@ -40,25 +62,7 @@ const SkillForge = () => {
   const [skillInput, setSkillInput] = useState('');
   const [timeframe, setTimeframe] = useState('30');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedRoadmap, setGeneratedRoadmap] = useState<null | {
-    title: string;
-    description: string;
-    milestones: Array<{
-      title: string;
-      description: string;
-      completed: boolean;
-      resources: Array<{
-        type: 'article' | 'video' | 'exercise' | 'project';
-        title: string;
-        url?: string;
-        duration?: string;
-      }>;
-      tasks: Array<{
-        title: string;
-        completed: boolean;
-      }>;
-    }>;
-  }>(null);
+  const [generatedRoadmap, setGeneratedRoadmap] = useState<Roadmap | null>(null);
   
   const { toast } = useToast();
 
@@ -80,7 +84,7 @@ const SkillForge = () => {
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Mock roadmap data
-      const mockRoadmap = {
+      const mockRoadmap: Roadmap = {
         title: `Become a ${skillInput} Professional`,
         description: `This custom learning roadmap will guide you through the journey of becoming proficient in ${skillInput} within a ${timeframe}-day timeframe. Follow the milestones, complete the tasks, and utilize the recommended resources to build your skills.`,
         milestones: [
@@ -90,19 +94,19 @@ const SkillForge = () => {
             completed: false,
             resources: [
               {
-                type: 'article',
+                type: 'article' as ResourceType,
                 title: `Introduction to ${skillInput}`,
                 url: '#',
                 duration: '20 min read'
               },
               {
-                type: 'video',
+                type: 'video' as ResourceType,
                 title: `${skillInput} for Beginners`,
                 url: '#',
                 duration: '45 min'
               },
               {
-                type: 'exercise',
+                type: 'exercise' as ResourceType,
                 title: 'Fundamentals Practice Quiz',
                 url: '#',
               }
@@ -128,19 +132,19 @@ const SkillForge = () => {
             completed: false,
             resources: [
               {
-                type: 'article',
+                type: 'article' as ResourceType,
                 title: `Advanced ${skillInput} Techniques`,
                 url: '#',
                 duration: '30 min read'
               },
               {
-                type: 'video',
+                type: 'video' as ResourceType,
                 title: `${skillInput} Deep Dive`,
                 url: '#',
                 duration: '1.5 hours'
               },
               {
-                type: 'project',
+                type: 'project' as ResourceType,
                 title: 'Mini-Project: Apply Your Knowledge',
                 url: '#',
               }
@@ -166,18 +170,18 @@ const SkillForge = () => {
             completed: false,
             resources: [
               {
-                type: 'project',
+                type: 'project' as ResourceType,
                 title: `${skillInput} Capstone Project`,
                 url: '#',
               },
               {
-                type: 'article',
+                type: 'article' as ResourceType,
                 title: 'Industry Best Practices',
                 url: '#',
                 duration: '25 min read'
               },
               {
-                type: 'video',
+                type: 'video' as ResourceType,
                 title: 'Expert Tips and Tricks',
                 url: '#',
                 duration: '1 hour'

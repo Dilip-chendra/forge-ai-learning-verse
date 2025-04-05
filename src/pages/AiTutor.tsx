@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,15 +97,12 @@ const AiTutor = () => {
     setUploadedFiles([]);
     setIsTyping(true);
     
-    // Simulate AI response delay
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Update status of sent message
     setMessages(prev => prev.map(msg => 
       msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
     ));
     
-    // Select a random response from the predefined list
     const randomResponse = botResponses[Math.floor(Math.random() * botResponses.length)];
     
     const aiResponse: Message = {
@@ -132,7 +128,6 @@ const AiTutor = () => {
       const files = Array.from(e.target.files);
       setUploadedFiles(prev => [...prev, ...files]);
       
-      // Reset the input to allow uploading the same file again
       e.target.value = '';
     }
   };
@@ -195,7 +190,7 @@ const AiTutor = () => {
                           </>
                         ) : (
                           <>
-                            <AvatarImage src={user?.avatar} />
+                            <AvatarImage src={user?.avatar || ""} />
                             <AvatarFallback className="bg-muted">
                               <User className="h-4 w-4" />
                             </AvatarFallback>
@@ -210,7 +205,6 @@ const AiTutor = () => {
                               : 'bg-primary text-primary-foreground'
                           }`}
                         >
-                          {/* Attachments */}
                           {message.attachments && message.attachments.length > 0 && (
                             <div className="mb-2 space-y-2">
                               {message.attachments.map((attachment, attachIndex) => (
@@ -232,10 +226,8 @@ const AiTutor = () => {
                             </div>
                           )}
                           
-                          {/* Message content */}
                           <div className="whitespace-pre-line">{message.content}</div>
                           
-                          {/* Status indicator for user messages */}
                           {message.role === 'user' && message.status && (
                             <div className="flex justify-end mt-1">
                               {message.status === 'sending' ? (

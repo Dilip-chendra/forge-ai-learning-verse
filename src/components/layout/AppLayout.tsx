@@ -31,7 +31,7 @@ export const AppLayout = () => {
         <AppSidebar />
         <main className="flex-1 overflow-auto">
           <header className="p-4 border-b flex items-center lg:hidden">
-            <SidebarTrigger asChild>
+            <SidebarTrigger>
               <Button variant="ghost" size="icon">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle Sidebar</span>

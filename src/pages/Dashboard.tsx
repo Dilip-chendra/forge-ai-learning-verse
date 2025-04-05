@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { 
   BrainCircuit, 
   Upload, 
@@ -15,7 +16,9 @@ import {
   Zap, 
   Clock, 
   TrendingUp, 
-  CheckCircle2 
+  CheckCircle2,
+  FileText,
+  ArrowRight
 } from 'lucide-react';
 
 // Quick insights data
@@ -159,6 +162,47 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* Career Agent X Promotion */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="bg-primary text-primary-foreground p-1 rounded">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-semibold">New: CareerAgentX</h3>
+              </div>
+              <p className="mb-4">
+                Let AI apply to jobs for you 24/7. Upload your resume once, set your preferences, and let our AI find, personalize, and apply to matching jobs automatically.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none">
+                  Resume Optimization
+                </Badge>
+                <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none">
+                  Auto Application
+                </Badge>
+                <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none">
+                  Interview Scheduling
+                </Badge>
+                <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none">
+                  Job Analytics
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center justify-center md:justify-end">
+              <Button size="lg" asChild>
+                <Link to="/career-agent">
+                  Try CareerAgentX
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Continue Learning & Next Steps */}
       <div>

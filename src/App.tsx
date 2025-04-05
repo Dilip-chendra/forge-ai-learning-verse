@@ -13,6 +13,7 @@ import UploadToLearn from "@/pages/UploadToLearn";
 import SkillForge from "@/pages/SkillForge";
 import AiTutor from "@/pages/AiTutor";
 import LearningLibrary from "@/pages/LearningLibrary";
+import CareerAgentX from "@/pages/CareerAgentX";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/skill-forge" element={<SkillForge />} />
               <Route path="/ai-tutor" element={<AiTutor />} />
               <Route path="/library" element={<LearningLibrary />} />
+              <Route path="/career-agent" element={<CareerAgentX />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

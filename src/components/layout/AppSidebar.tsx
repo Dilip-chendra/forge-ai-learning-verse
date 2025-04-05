@@ -21,7 +21,8 @@ import {
   Settings,
   LogOut,
   BookCopy,
-  BrainCircuit
+  BrainCircuit,
+  FileText
 } from "lucide-react";
 import { Button } from '@/components/ui/button';
 
@@ -55,6 +56,11 @@ const menuItems = [
     title: "Learning Library",
     path: "/library",
     icon: BookCopy
+  },
+  {
+    title: "CareerAgentX",
+    path: "/career-agent",
+    icon: FileText
   }
 ];
 

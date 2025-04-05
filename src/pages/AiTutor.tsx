@@ -481,7 +481,6 @@ const AiTutor = () => {
                 <Input
                   placeholder="Search your learning history..."
                   className="w-full"
-                  prefix={<MessageSquare className="h-4 w-4 text-muted-foreground mr-2" />}
                 />
               </div>
             </CardFooter>

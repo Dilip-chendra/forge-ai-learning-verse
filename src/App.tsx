@@ -12,6 +12,7 @@ import StudyGenerator from "@/pages/StudyGenerator";
 import UploadToLearn from "@/pages/UploadToLearn";
 import SkillForge from "@/pages/SkillForge";
 import AiTutor from "@/pages/AiTutor";
+import LearningLibrary from "@/pages/LearningLibrary";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/upload-to-learn" element={<UploadToLearn />} />
               <Route path="/skill-forge" element={<SkillForge />} />
               <Route path="/ai-tutor" element={<AiTutor />} />
+              <Route path="/library" element={<LearningLibrary />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

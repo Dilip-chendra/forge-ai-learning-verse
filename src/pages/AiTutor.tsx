@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   MessageSquare, 
   Mic, 
@@ -21,23 +22,19 @@ import {
   Loader2,
   CheckCircle,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  BrainCircuit,
+  AlertTriangle,
+  Trash,
+  FileAudio,
+  FileVideo,
+  FileText,
+  Clock
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
-
-type Message = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  status?: 'sending' | 'sent' | 'error';
-  attachments?: Array<{
-    type: 'image' | 'file';
-    url: string;
-    name: string;
-  }>;
-};
+import { aiMemory } from '@/utils/aiMemory';
+import { Message, FileUpload, LearningResource } from '@/types/aiTutor';
 
 const botResponses = [
   "The concept you're asking about involves several key principles. First, consider the fundamental idea that all elements in the system interact with each other. This interaction creates a dynamic equilibrium that can be observed through various measurements and analyses.",
@@ -53,20 +50,52 @@ const botResponses = [
 
 const AiTutor = () => {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: "Hi! I'm your AI Tutor. I'm here to help you learn and understand any topic. What would you like to explore today?",
-      timestamp: new Date(),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
+  const [activeTab, setActiveTab] = useState('chat');
+  const [learningTopics, setLearningTopics] = useState<LearningResource[]>([]);
+  const [resources, setResources] = useState<LearningResource[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const storedMessages = aiMemory.getMessages();
+    if (storedMessages.length === 0) {
+      const initialMessage: Message = {
+        id: '1',
+        role: 'assistant',
+        content: "Hi! I'm your AI Tutor with multimodal memory. I can remember our conversations and the resources you share. What would you like to learn today?",
+        timestamp: new Date(),
+      };
+      aiMemory.addMessage(initialMessage);
+      setMessages([initialMessage]);
+    } else {
+      setMessages(storedMessages);
+    }
+
+    const topics = aiMemory.getLearningTopics().map(topic => ({
+      id: topic.id,
+      title: topic.name,
+      type: 'topic' as const,
+      date: topic.lastStudied,
+    }));
+    setLearningTopics(topics);
+
+    const uploadedResources = aiMemory.getResources().map(resource => ({
+      id: resource.id,
+      title: resource.name,
+      type: resource.type,
+      url: resource.url,
+      content: resource.content,
+      date: resource.createdAt,
+    }));
+    setResources(uploadedResources);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -85,17 +114,34 @@ const AiTutor = () => {
       content: input.trim(),
       timestamp: new Date(),
       status: 'sending',
-      attachments: uploadedFiles.length > 0 ? uploadedFiles.map(file => ({
-        type: file.type.startsWith('image/') ? 'image' : 'file',
-        url: URL.createObjectURL(file),
-        name: file.name
-      })) : undefined
+      attachments: uploadedFiles
+        .filter(file => file.status === 'complete')
+        .map(file => ({
+          type: getFileType(file.file),
+          url: file.preview || URL.createObjectURL(file.file),
+          name: file.file.name,
+          thumbnail: file.preview,
+        }))
     };
     
+    aiMemory.addMessage(newMessage);
     setMessages(prev => [...prev, newMessage]);
     setInput('');
+    
     setUploadedFiles([]);
     setIsTyping(true);
+    
+    const potentialTopic = extractTopic(input);
+    if (potentialTopic) {
+      aiMemory.updateLearningTopic(potentialTopic);
+      const topics = aiMemory.getLearningTopics().map(topic => ({
+        id: topic.id,
+        title: topic.name,
+        type: 'topic' as const,
+        date: topic.lastStudied,
+      }));
+      setLearningTopics(topics);
+    }
     
     await new Promise(resolve => setTimeout(resolve, 1500));
     
@@ -103,17 +149,61 @@ const AiTutor = () => {
       msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
     ));
     
-    const randomResponse = botResponses[Math.floor(Math.random() * botResponses.length)];
+    const contextualResponse = getContextualResponse(input, messages);
     
     const aiResponse: Message = {
       id: (Date.now() + 1).toString(),
       role: 'assistant',
-      content: randomResponse,
+      content: contextualResponse,
       timestamp: new Date(),
     };
     
+    aiMemory.addMessage(aiResponse);
     setMessages(prev => [...prev, aiResponse]);
     setIsTyping(false);
+  };
+
+  const extractTopic = (text: string): string | null => {
+    const topicPatterns = [
+      /(?:about|learn|explain|understand|study|topic of) ([a-z\s]{3,50}?)(?:\?|\.|\,|$)/i,
+      /(?:what is|how does) ([a-z\s]{3,50}?)(?:\?|\.|\,|$)/i,
+      /([a-z\s]{3,50}?)(?:\?|\.|\,|$)/i
+    ];
+    
+    for (const pattern of topicPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1] && match[1].length > 3) {
+        return match[1].trim();
+      }
+    }
+    
+    return null;
+  };
+
+  const getContextualResponse = (userMessage: string, messageHistory: Message[]): string => {
+    const containsReference = /(?:previous|earlier|last time|you said|as you mentioned|remember when)/i.test(userMessage);
+    
+    if (containsReference && messageHistory.length > 2) {
+      const randomPreviousMessage = messageHistory
+        .filter(msg => msg.role === 'assistant')
+        .slice(0, -1);
+      
+      if (randomPreviousMessage.length > 0) {
+        const randomIndex = Math.floor(Math.random() * randomPreviousMessage.length);
+        const previousContent = randomPreviousMessage[randomIndex].content.split(' ').slice(0, 6).join(' ');
+        
+        return `As I mentioned earlier about "${previousContent}...", ${botResponses[Math.floor(Math.random() * botResponses.length)]}`;
+      }
+    }
+    
+    const isAboutResource = /(?:file|document|upload|picture|image|photo|pdf|video)/i.test(userMessage);
+    
+    if (isAboutResource && resources.length > 0) {
+      const randomResource = resources[Math.floor(Math.random() * resources.length)];
+      return `Based on your ${randomResource.type} "${randomResource.title}", ${botResponses[Math.floor(Math.random() * botResponses.length)]}`;
+    }
+    
+    return botResponses[Math.floor(Math.random() * botResponses.length)];
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -126,10 +216,69 @@ const AiTutor = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
-      setUploadedFiles(prev => [...prev, ...files]);
+      const newUploads: FileUpload[] = files.map(file => ({
+        file,
+        progress: 0,
+        status: 'uploading',
+        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+      }));
+      
+      setUploadedFiles(prev => [...prev, ...newUploads]);
+      
+      simulateFileUploads(newUploads);
       
       e.target.value = '';
     }
+  };
+
+  const simulateFileUploads = (uploads: FileUpload[]) => {
+    uploads.forEach((upload, index) => {
+      const intervalId = setInterval(() => {
+        setUploadedFiles(prev => {
+          const newUploads = [...prev];
+          const uploadIndex = newUploads.findIndex(
+            u => u.file.name === upload.file.name && u.file.size === upload.file.size
+          );
+          
+          if (uploadIndex !== -1) {
+            newUploads[uploadIndex].progress += 10;
+            
+            if (newUploads[uploadIndex].progress >= 100) {
+              clearInterval(intervalId);
+              newUploads[uploadIndex].status = 'complete';
+              
+              const fileType = getFileType(upload.file);
+              aiMemory.addResource({
+                id: Date.now().toString() + index,
+                type: fileType,
+                name: upload.file.name,
+                url: upload.preview || URL.createObjectURL(upload.file),
+                content: fileType === 'document' ? `Content extracted from ${upload.file.name}` : undefined
+              });
+              
+              const updatedResources = aiMemory.getResources().map(resource => ({
+                id: resource.id,
+                title: resource.name,
+                type: resource.type,
+                url: resource.url,
+                content: resource.content,
+                date: resource.createdAt,
+              }));
+              setResources(updatedResources);
+            }
+          }
+          
+          return newUploads;
+        });
+      }, 200);
+    });
+  };
+
+  const getFileType = (file: File): 'document' | 'image' | 'audio' | 'video' => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('audio/')) return 'audio';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'document';
   };
 
   const removeUploadedFile = (index: number) => {
@@ -140,6 +289,22 @@ const AiTutor = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatDate = (date: Date | string) => {
+    const d = date instanceof Date ? date : new Date(date);
+    const now = new Date();
+    const diffInDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) {
+      return 'Today';
+    } else if (diffInDays === 1) {
+      return 'Yesterday';
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`;
+    } else {
+      return d.toLocaleDateString();
+    }
+  };
+
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({
@@ -147,12 +312,63 @@ const AiTutor = () => {
     });
   };
 
+  const toggleRecording = () => {
+    if (isRecording) {
+      setIsRecording(false);
+      toast({
+        description: "Voice recording stopped and processed",
+      });
+      setInput(prev => prev + " This is a simulated voice transcription.");
+    } else {
+      setIsRecording(true);
+      toast({
+        description: "Voice recording started...",
+      });
+    }
+  };
+
+  const clearConversation = () => {
+    const initialMessage = messages[0];
+    aiMemory.clearMemory();
+    if (initialMessage) {
+      aiMemory.addMessage(initialMessage);
+    }
+    setMessages(initialMessage ? [initialMessage] : []);
+    
+    toast({
+      description: "Conversation cleared",
+    });
+  };
+
+  const FileUploadProgress = ({ upload }: { upload: FileUpload }) => (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2">
+          {upload.file.type.startsWith('image/') && <ImageIcon className="h-3 w-3" />}
+          {upload.file.type.startsWith('audio/') && <FileAudio className="h-3 w-3" />}
+          {upload.file.type.startsWith('video/') && <FileVideo className="h-3 w-3" />}
+          {(!upload.file.type.startsWith('image/') && 
+            !upload.file.type.startsWith('audio/') && 
+            !upload.file.type.startsWith('video/')) && <FileText className="h-3 w-3" />}
+          <span className="truncate max-w-[150px]">{upload.file.name}</span>
+        </div>
+        <span>{Math.min(100, upload.progress)}%</span>
+      </div>
+      <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${upload.status === 'error' ? 'bg-destructive' : 'bg-primary'}`} 
+          style={{ width: `${Math.min(100, upload.progress)}%` }}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-1">AI Tutor</h1>
+        <h1 className="text-3xl font-bold mb-1">AI Tutor <Badge variant="outline" className="ml-2 bg-primary/10 text-primary">MMT-GPT</Badge></h1>
         <p className="text-muted-foreground">
-          Your personal learning assistant for any subject or question.
+          Your personal multimodal memory-enhanced learning assistant.
         </p>
       </div>
 
@@ -160,16 +376,29 @@ const AiTutor = () => {
         <div className="lg:col-span-3">
           <Card className="h-[700px] flex flex-col">
             <CardHeader className="px-4 py-3 border-b">
-              <div className="flex items-center">
-                <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src="/placeholder.svg" />
-                  <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-base">EduForge AI Tutor</CardTitle>
-                  <CardDescription className="text-xs">Ask anything, upload resources, learn effectively</CardDescription>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Avatar className="h-8 w-8 mr-2">
+                    <AvatarImage src="/placeholder.svg" />
+                    <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <CardTitle className="text-base">EduForge AI Tutor</CardTitle>
+                    <CardDescription className="text-xs">With multimodal memory capabilities</CardDescription>
+                  </div>
                 </div>
-                <Badge variant="outline" className="ml-auto text-xs bg-green-500/10 text-green-500 hover:bg-green-500/20">Online</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500 hover:bg-green-500/20">Online</Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={clearConversation}
+                  >
+                    <Trash className="h-4 w-4" />
+                    <span className="sr-only">Clear conversation</span>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="flex-1 p-0 overflow-hidden">
@@ -216,9 +445,33 @@ const AiTutor = () => {
                                       className="max-w-full h-auto max-h-40 object-cover"
                                     />
                                   </div>
+                                ) : attachment.type === 'audio' ? (
+                                  <div key={attachIndex} className="rounded-md overflow-hidden bg-background/20 p-2">
+                                    <div className="flex items-center gap-2">
+                                      <FileAudio className="h-4 w-4" />
+                                      <span className="text-sm truncate">{attachment.name}</span>
+                                    </div>
+                                    <audio 
+                                      controls 
+                                      className="w-full mt-2 h-8"
+                                    >
+                                      <source src={attachment.url} type="audio/mpeg" />
+                                      Your browser does not support the audio element.
+                                    </audio>
+                                  </div>
+                                ) : attachment.type === 'video' ? (
+                                  <div key={attachIndex} className="rounded-md overflow-hidden">
+                                    <video 
+                                      controls 
+                                      className="max-w-full h-auto max-h-40"
+                                    >
+                                      <source src={attachment.url} type="video/mp4" />
+                                      Your browser does not support the video element.
+                                    </video>
+                                  </div>
                                 ) : (
                                   <div key={attachIndex} className="flex items-center gap-2 bg-background/20 rounded p-2">
-                                    <BookOpen className="h-4 w-4" />
+                                    <FileText className="h-4 w-4" />
                                     <span className="text-sm truncate">{attachment.name}</span>
                                   </div>
                                 )
@@ -309,23 +562,14 @@ const AiTutor = () => {
             </CardContent>
             <CardFooter className="p-3 border-t">
               {uploadedFiles.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2">
+                <div className="mb-2 w-full space-y-2">
                   {uploadedFiles.map((file, index) => (
-                    <Badge 
-                      key={index} 
-                      variant="outline" 
-                      className="flex items-center gap-1 pl-2 bg-accent/50"
-                    >
-                      {file.type.startsWith('image/') ? (
-                        <ImageIcon className="h-3 w-3" />
-                      ) : (
-                        <BookOpen className="h-3 w-3" />
-                      )}
-                      <span className="truncate max-w-[120px]">{file.name}</span>
+                    <div key={index} className="flex items-center justify-between">
+                      <FileUploadProgress upload={file} />
                       <Button
                         variant="ghost" 
                         size="icon" 
-                        className="h-5 w-5 ml-1 text-muted-foreground hover:text-destructive"
+                        className="h-6 w-6 ml-1 text-muted-foreground hover:text-destructive"
                         onClick={() => removeUploadedFile(index)}
                       >
                         <svg
@@ -343,7 +587,7 @@ const AiTutor = () => {
                         </svg>
                         <span className="sr-only">Remove</span>
                       </Button>
-                    </Badge>
+                    </div>
                   ))}
                 </div>
               )}
@@ -378,7 +622,8 @@ const AiTutor = () => {
                     type="button"
                     size="icon"
                     variant="outline"
-                    className="rounded-full h-9 w-9"
+                    className={`rounded-full h-9 w-9 ${isRecording ? 'bg-red-100 text-red-500 border-red-200' : ''}`}
+                    onClick={toggleRecording}
                   >
                     <Mic className="h-4 w-4" />
                     <span className="sr-only">Voice input</span>
@@ -403,78 +648,160 @@ const AiTutor = () => {
           <Card className="h-[700px] flex flex-col">
             <CardHeader className="px-4 py-3 border-b">
               <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Learning Resources
+                <BrainCircuit className="h-4 w-4 text-primary" />
+                Learning Memory
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 p-0 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-4">
-                  <div>
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
-                      Suggested Topics
-                    </Label>
-                    <div className="space-y-2">
-                      {[
-                        "How does photosynthesis work?",
-                        "Explain Newton's laws of motion",
-                        "What are the key principles of machine learning?",
-                        "How to solve quadratic equations?",
-                        "Explain the water cycle"
-                      ].map((topic, index) => (
-                        <Button 
-                          key={index} 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full justify-start text-left font-normal h-auto py-2"
-                          onClick={() => setInput(topic)}
-                        >
-                          {topic}
-                        </Button>
-                      ))}
+              <Tabs defaultValue="topics" className="h-full flex flex-col">
+                <TabsList className="w-full justify-start px-4 pt-2">
+                  <TabsTrigger value="topics" className="text-xs">Topics</TabsTrigger>
+                  <TabsTrigger value="resources" className="text-xs">Resources</TabsTrigger>
+                  <TabsTrigger value="suggestions" className="text-xs">Suggestions</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="topics" className="flex-1 p-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-4 space-y-4">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
+                        Recently Studied Topics
+                      </Label>
+                      <div className="space-y-2">
+                        {learningTopics.length > 0 ? (
+                          learningTopics.map((topic, index) => (
+                            <div key={index} className="flex justify-between items-center text-sm p-2 rounded-md hover:bg-accent/50">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="h-3.5 w-3.5 text-primary/70" />
+                                <span>{topic.title}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                  <Clock className="h-2.5 w-2.5 mr-1" />
+                                  {formatDate(topic.date)}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No learning topics yet</p>
+                            <p className="text-xs mt-1">Start a conversation to build your knowledge profile</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block mt-6">
+                        Suggested Topics
+                      </Label>
+                      <div className="space-y-2">
+                        {[
+                          "How does photosynthesis work?",
+                          "Explain Newton's laws of motion",
+                          "What are the key principles of machine learning?",
+                          "How to solve quadratic equations?",
+                          "Explain the water cycle"
+                        ].map((topic, index) => (
+                          <Button 
+                            key={index} 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full justify-start text-left font-normal h-auto py-2"
+                            onClick={() => setInput(topic)}
+                          >
+                            {topic}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
-                      Your Uploads
-                    </Label>
-                    <div className="rounded-lg border border-dashed p-4 text-center">
-                      <BookOpen className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Upload study materials to enhance your learning experience
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Files
-                      </Button>
+                  </ScrollArea>
+                </TabsContent>
+                
+                <TabsContent value="resources" className="flex-1 p-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-4 space-y-4">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
+                        Your Uploaded Resources
+                      </Label>
+                      <div className="space-y-2">
+                        {resources.length > 0 ? (
+                          resources.map((resource, index) => (
+                            <div key={index} className="flex justify-between items-center text-sm p-2 rounded-md hover:bg-accent/50">
+                              <div className="flex items-center gap-2">
+                                {resource.type === 'document' && <FileText className="h-3.5 w-3.5" />}
+                                {resource.type === 'image' && <ImageIcon className="h-3.5 w-3.5" />}
+                                {resource.type === 'audio' && <FileAudio className="h-3.5 w-3.5" />}
+                                {resource.type === 'video' && <FileVideo className="h-3.5 w-3.5" />}
+                                <span className="truncate max-w-[120px]">{resource.title}</span>
+                              </div>
+                              <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                {formatDate(resource.date)}
+                              </Badge>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-lg border border-dashed p-4 text-center">
+                            <BookOpen className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Upload study materials to enhance your learning experience
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Files
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
-                      Learning History
-                    </Label>
-                    <div className="space-y-3">
-                      {[
-                        { title: "Calculus: Derivatives", date: "2 hours ago" },
-                        { title: "World History: Renaissance", date: "Yesterday" },
-                        { title: "Biology: Cell Structure", date: "3 days ago" }
-                      ].map((item, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm p-2 rounded-md hover:bg-accent/50">
-                          <span>{item.title}</span>
-                          <span className="text-xs text-muted-foreground">{item.date}</span>
+                  </ScrollArea>
+                </TabsContent>
+                
+                <TabsContent value="suggestions" className="flex-1 p-0 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-4 space-y-4">
+                      <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
+                        Personalized Suggestions
+                      </Label>
+                      <div className="space-y-3">
+                        <div className="bg-accent/30 p-3 rounded-lg space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            <span className="font-medium">Activity Suggestion</span>
+                          </div>
+                          <p className="text-sm">Try uploading your course notes or textbook pages to get personalized explanations.</p>
                         </div>
-                      ))}
+                        
+                        <div className="bg-accent/30 p-3 rounded-lg space-y-2">
+                          <div className="flex items-center gap-2">
+                            <BrainCircuit className="h-4 w-4 text-primary" />
+                            <span className="font-medium">Learning Insight</span>
+                          </div>
+                          <p className="text-sm">You seem interested in science topics. Would you like to explore physics concepts in more depth?</p>
+                          <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setInput("Tell me more about fundamental physics concepts")}>
+                            Explore Physics
+                          </Button>
+                        </div>
+                        
+                        <div className="bg-accent/30 p-3 rounded-lg space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="font-medium">Scheduled Review</span>
+                          </div>
+                          <p className="text-sm">It's been 3 days since you studied calculus. Want to refresh your knowledge?</p>
+                          <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setInput("Let's review calculus concepts we covered last time")}>
+                            Review Calculus
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </ScrollArea>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </CardContent>
             <CardFooter className="p-3 border-t">
               <div className="w-full">

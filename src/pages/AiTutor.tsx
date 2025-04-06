@@ -150,19 +150,26 @@ const AiTutor = () => {
     ));
     
     try {
-      // Call Gemini API
+      // Create conversation history for context
+      const recentMessages = messages.slice(-5).map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+      
+      // Add the current message
+      recentMessages.push({
+        role: 'user',
+        parts: [{ text: input }]
+      });
+      
+      // Call Gemini API with conversation history for better context
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: input }],
-            }
-          ],
+          contents: recentMessages,
           generationConfig: {
             temperature: 0.7,
             topK: 40,
@@ -179,7 +186,8 @@ const AiTutor = () => {
       }
 
       const data = await response.json();
-      const aiResponseText = data.candidates[0]?.content?.parts[0]?.text || 'Sorry, I couldn\'t generate a response.';
+      console.log("Gemini API response:", data);
+      const aiResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
       
       // Add AI response to messages
       const aiResponse: Message = {

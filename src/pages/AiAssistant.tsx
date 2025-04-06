@@ -63,15 +63,17 @@ const AiAssistant = () => {
     // Store the API key in localStorage for persistence
     localStorage.setItem('gemini-api-key', apiKey);
     
-    // Add a welcome message
-    setMessages([
-      {
-        id: '1',
-        role: 'assistant',
-        content: 'Hello! I\'m your AI assistant powered by Google\'s Gemini. How can I help you today?',
-        timestamp: new Date(),
-      }
-    ]);
+    // Add a welcome message if there are no messages
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: '1',
+          role: 'assistant',
+          content: 'Hello! I\'m your AI assistant powered by Google\'s Gemini. How can I help you today?',
+          timestamp: new Date(),
+        }
+      ]);
+    }
   }, []);
 
   useEffect(() => {
@@ -183,12 +185,23 @@ const AiAssistant = () => {
         // Update the last message (our placeholder)
         setMessages(prev => {
           const updatedMessages = [...prev];
-          updatedMessages[updatedMessages.length - 1] = {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: assistantResponse,
-            timestamp: new Date(),
-          };
+          const placeholderIndex = updatedMessages.findIndex(m => m.id.startsWith('placeholder-'));
+          if (placeholderIndex !== -1) {
+            updatedMessages[placeholderIndex] = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: assistantResponse,
+              timestamp: new Date(),
+            };
+          } else {
+            // If no placeholder (shouldn't happen), add new message
+            updatedMessages.push({
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: assistantResponse,
+              timestamp: new Date(),
+            });
+          }
           return updatedMessages;
         });
       } else {

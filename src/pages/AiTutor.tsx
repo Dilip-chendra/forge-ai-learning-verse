@@ -36,17 +36,8 @@ import { useAuth } from '@/context/AuthContext';
 import { aiMemory } from '@/utils/aiMemory';
 import { Message, FileUpload, LearningResource } from '@/types/aiTutor';
 
-const botResponses = [
-  "The concept you're asking about involves several key principles. First, consider the fundamental idea that all elements in the system interact with each other. This interaction creates a dynamic equilibrium that can be observed through various measurements and analyses.",
-  
-  "That's a great question! In learning theory, we distinguish between three main approaches: behaviorism, cognitivism, and constructivism. Each has strengths and limitations depending on the learning context. Behaviorism focuses on observable behavior changes, cognitivism looks at mental processes, and constructivism emphasizes how learners build knowledge through experiences.",
-  
-  "Let me explain this step by step:\n\n1. Start by identifying the core variables\n2. Analyze their relationships\n3. Apply the relevant formula\n4. Interpret the results in context\n\nWould you like me to elaborate on any of these steps?",
-  
-  "This topic connects to several other concepts we've covered. Remember our discussion about system dynamics? The principles there apply directly to what you're asking now. You might want to review the material from Chapter 4, which explains the theoretical foundations in more detail.",
-  
-  "I'd recommend approaching this problem by breaking it down into smaller components. This method, called decomposition, helps manage complexity. Let's identify the key elements first, then work through each one systematically.",
-];
+// This is the API key we'll use for the Gemini API
+const API_KEY = 'AIzaSyAUB-wik0QCmYfOZSynJdeQ0NWa4FkJSzk';
 
 const AiTutor = () => {
   const [input, setInput] = useState('');
@@ -152,24 +143,74 @@ const AiTutor = () => {
       setLearningTopics(topics);
     }
     
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
+    // Update message status to sent
     setMessages(prev => prev.map(msg => 
       msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
     ));
     
-    const contextualResponse = getContextualResponse(input, messages);
-    
-    const aiResponse: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: contextualResponse,
-      timestamp: new Date(),
-    };
-    
-    aiMemory.addMessage(aiResponse);
-    setMessages(prev => [...prev, aiResponse]);
-    setIsTyping(false);
+    try {
+      // Call Gemini API
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: input }],
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Gemini API error: ${response.status}`, errorText);
+        throw new Error(`Error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const aiResponseText = data.candidates[0]?.content?.parts[0]?.text || 'Sorry, I couldn\'t generate a response.';
+      
+      // Add AI response to messages
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: aiResponseText,
+        timestamp: new Date(),
+      };
+      
+      aiMemory.addMessage(aiResponse);
+      setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('Error calling Gemini API:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to connect to Gemini API",
+      });
+      
+      // Add error message
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, there was an error connecting to the AI service. Please try again later.',
+        timestamp: new Date(),
+      };
+      
+      aiMemory.addMessage(errorResponse);
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const extractTopic = (text: string): string | null => {
@@ -190,29 +231,8 @@ const AiTutor = () => {
   };
 
   const getContextualResponse = (userMessage: string, messageHistory: Message[]): string => {
-    const containsReference = /(?:previous|earlier|last time|you said|as you mentioned|remember when)/i.test(userMessage);
-    
-    if (containsReference && messageHistory.length > 2) {
-      const randomPreviousMessage = messageHistory
-        .filter(msg => msg.role === 'assistant')
-        .slice(0, -1);
-      
-      if (randomPreviousMessage.length > 0) {
-        const randomIndex = Math.floor(Math.random() * randomPreviousMessage.length);
-        const previousContent = randomPreviousMessage[randomIndex].content.split(' ').slice(0, 6).join(' ');
-        
-        return `As I mentioned earlier about "${previousContent}...", ${botResponses[Math.floor(Math.random() * botResponses.length)]}`;
-      }
-    }
-    
-    const isAboutResource = /(?:file|document|upload|picture|image|photo|pdf|video)/i.test(userMessage);
-    
-    if (isAboutResource && resources.length > 0) {
-      const randomResource = resources[Math.floor(Math.random() * resources.length)];
-      return `Based on your ${randomResource.type} "${randomResource.title}", ${botResponses[Math.floor(Math.random() * botResponses.length)]}`;
-    }
-    
-    return botResponses[Math.floor(Math.random() * botResponses.length)];
+    // This function is no longer used since we're getting real responses from the API
+    return "Let me think about that...";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -800,33 +820,4 @@ const AiTutor = () => {
                         
                         <div className="bg-accent/30 p-3 rounded-lg space-y-2">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-primary" />
-                            <span className="font-medium">Scheduled Review</span>
-                          </div>
-                          <p className="text-sm">It's been 3 days since you studied calculus. Want to refresh your knowledge?</p>
-                          <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setInput("Let's review calculus concepts we covered last time")}>
-                            Review Calculus
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-            <CardFooter className="p-3 border-t">
-              <div className="w-full">
-                <Input
-                  placeholder="Search your learning history..."
-                  className="w-full"
-                />
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default AiTutor;
+                            <Clock className="h-4 w-4 text-

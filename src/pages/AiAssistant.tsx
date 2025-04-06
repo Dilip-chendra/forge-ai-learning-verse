@@ -47,25 +47,22 @@ type Message = {
 type GeminiModel = 'gemini-pro' | 'gemini-pro-vision';
 
 const AiAssistant = () => {
-  const [apiKey, setApiKey] = useState<string>('');
+  // Using the provided API key directly
+  const [apiKey, setApiKey] = useState<string>('AIzaSyAUB-wik0QCmYfOZSynJdeQ0NWa4FkJSzk');
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-pro');
-  const [isApiKeyStored, setIsApiKeyStored] = useState<boolean>(false);
+  const [isApiKeyStored, setIsApiKeyStored] = useState<boolean>(true); // Set to true since we're providing the key
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [streamResponse, setStreamResponse] = useState<boolean>(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if we have a stored API key
-    const storedApiKey = localStorage.getItem('gemini-api-key');
-    if (storedApiKey) {
-      setApiKey(storedApiKey);
-      setIsApiKeyStored(true);
-    }
-
+    // Store the API key in localStorage for persistence
+    localStorage.setItem('gemini-api-key', apiKey);
+    
     // Add a welcome message
     setMessages([
       {
@@ -147,6 +144,8 @@ const AiAssistant = () => {
         }]);
       }
 
+      console.log(`Sending request to Gemini API with model: ${selectedModel}`);
+      
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: {
@@ -169,10 +168,13 @@ const AiAssistant = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${await response.text()}`);
+        const errorText = await response.text();
+        console.error(`Gemini API error: ${response.status}`, errorText);
+        throw new Error(`Error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('Gemini API response:', data);
       
       // Extract the response text
       const assistantResponse = data.candidates[0]?.content?.parts[0]?.text || 'Sorry, I couldn\'t generate a response.';
@@ -198,6 +200,11 @@ const AiAssistant = () => {
           timestamp: new Date(),
         }]);
       }
+      
+      toast({
+        title: "Response received",
+        description: "Gemini has answered your question",
+      });
     } catch (error) {
       console.error('Error calling Gemini API:', error);
       toast({
@@ -424,24 +431,13 @@ const AiAssistant = () => {
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={isLoading || (!apiKey && !isApiKeyStored)}
+          disabled={isLoading}
         />
-        {(!apiKey && !isApiKeyStored) && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-sm">
-            <Button 
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <Key className="h-4 w-4" />
-              Add API Key to Start
-            </Button>
-          </div>
-        )}
         <Button
           size="icon"
           className="absolute right-4 bottom-4"
           onClick={sendMessage}
-          disabled={isLoading || !userInput.trim() || (!apiKey && !isApiKeyStored)}
+          disabled={isLoading || !userInput.trim()}
         >
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -450,24 +446,6 @@ const AiAssistant = () => {
           )}
         </Button>
       </div>
-      
-      {/* API Key Notice */}
-      {!isApiKeyStored && (
-        <div className="mt-2 flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400">
-          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-          <p>
-            You'll need a Google AI Studio API key to use Gemini. Get one at{" "}
-            <a 
-              href="https://ai.google.dev/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="underline font-medium"
-            >
-              ai.google.dev
-            </a>
-          </p>
-        </div>
-      )}
     </div>
   );
 };

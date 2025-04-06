@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -215,9 +216,9 @@ const AiTutor = () => {
 
   const extractTopic = (text: string): string | null => {
     const topicPatterns = [
-      /(?:about|learn|explain|understand|study|topic of) ([a-z\s]{3,50}?)(?:\?|\.|\,|$)/i,
-      /(?:what is|how does) ([a-z\s]{3,50}?)(?:\?|\.|\,|$)/i,
-      /([a-z\s]{3,50}?)(?:\?|\.|\,|$)/i
+      /(?:about|learn|explain|understand|study|topic of) ([a-z\s]{3,50}?)(?:\?|\.|,|$)/i,
+      /(?:what is|how does) ([a-z\s]{3,50}?)(?:\?|\.|,|$)/i,
+      /([a-z\s]{3,50}?)(?:\?|\.|,|$)/i
     ];
     
     for (const pattern of topicPatterns) {
@@ -820,4 +821,22 @@ const AiTutor = () => {
                         
                         <div className="bg-accent/30 p-3 rounded-lg space-y-2">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="font-medium">Study Reminder</span>
+                          </div>
+                          <p className="text-sm">Regular practice helps with retention. Consider reviewing previously studied topics periodically.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AiTutor;

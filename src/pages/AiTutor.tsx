@@ -59,6 +59,7 @@ const AiTutor = () => {
   const [isRecording, setIsRecording] = useState(false);
   
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -99,10 +100,18 @@ const AiTutor = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
 
   const scrollToBottom = () => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (endOfMessagesRef.current) {
+      endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -402,162 +411,164 @@ const AiTutor = () => {
               </div>
             </CardHeader>
             <CardContent className="flex-1 p-0 overflow-hidden">
-              <ScrollArea className="h-full px-4 py-4">
-                {messages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <Avatar className="h-8 w-8 shrink-0">
-                        {message.role === 'assistant' ? (
-                          <>
-                            <AvatarImage src="/placeholder.svg" />
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              <Bot className="h-4 w-4" />
-                            </AvatarFallback>
-                          </>
-                        ) : (
-                          <>
-                            <AvatarImage src={user?.avatar || ""} />
-                            <AvatarFallback className="bg-muted">
-                              <User className="h-4 w-4" />
-                            </AvatarFallback>
-                          </>
-                        )}
-                      </Avatar>
-                      <div>
-                        <div
-                          className={`rounded-lg p-3 ${
-                            message.role === 'assistant'
-                              ? 'bg-muted'
-                              : 'bg-primary text-primary-foreground'
-                          }`}
-                        >
-                          {message.attachments && message.attachments.length > 0 && (
-                            <div className="mb-2 space-y-2">
-                              {message.attachments.map((attachment, attachIndex) => (
-                                attachment.type === 'image' ? (
-                                  <div key={attachIndex} className="rounded-md overflow-hidden">
-                                    <img 
-                                      src={attachment.url} 
-                                      alt={attachment.name} 
-                                      className="max-w-full h-auto max-h-40 object-cover"
-                                    />
-                                  </div>
-                                ) : attachment.type === 'audio' ? (
-                                  <div key={attachIndex} className="rounded-md overflow-hidden bg-background/20 p-2">
-                                    <div className="flex items-center gap-2">
-                                      <FileAudio className="h-4 w-4" />
-                                      <span className="text-sm truncate">{attachment.name}</span>
-                                    </div>
-                                    <audio 
-                                      controls 
-                                      className="w-full mt-2 h-8"
-                                    >
-                                      <source src={attachment.url} type="audio/mpeg" />
-                                      Your browser does not support the audio element.
-                                    </audio>
-                                  </div>
-                                ) : attachment.type === 'video' ? (
-                                  <div key={attachIndex} className="rounded-md overflow-hidden">
-                                    <video 
-                                      controls 
-                                      className="max-w-full h-auto max-h-40"
-                                    >
-                                      <source src={attachment.url} type="video/mp4" />
-                                      Your browser does not support the video element.
-                                    </video>
-                                  </div>
-                                ) : (
-                                  <div key={attachIndex} className="flex items-center gap-2 bg-background/20 rounded p-2">
-                                    <FileText className="h-4 w-4" />
-                                    <span className="text-sm truncate">{attachment.name}</span>
-                                  </div>
-                                )
-                              ))}
-                            </div>
-                          )}
-                          
-                          <div className="whitespace-pre-line">{message.content}</div>
-                          
-                          {message.role === 'user' && message.status && (
-                            <div className="flex justify-end mt-1">
-                              {message.status === 'sending' ? (
-                                <Loader2 className="h-3 w-3 animate-spin opacity-70" />
-                              ) : message.status === 'sent' ? (
-                                <CheckCircle className="h-3 w-3 opacity-70" />
-                              ) : (
-                                <div className="text-xs text-destructive">Failed to send</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className={`mt-1 flex items-center text-xs text-muted-foreground gap-2 ${
-                          message.role === 'user' ? 'justify-end' : ''
-                        }`}>
-                          <span>{formatTime(message.timestamp)}</span>
-                          
-                          {message.role === 'assistant' && (
+              <ScrollArea className="h-full px-4 py-4" ref={messagesContainerRef}>
+                <div className="flex flex-col space-y-4">
+                  {messages.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                        <Avatar className="h-8 w-8 shrink-0">
+                          {message.role === 'assistant' ? (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => copyMessage(message.content)}
-                              >
-                                <Copy className="h-3 w-3" />
-                                <span className="sr-only">Copy</span>
-                              </Button>
-                              
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                >
-                                  <ThumbsUp className="h-3 w-3" />
-                                  <span className="sr-only">Helpful</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                >
-                                  <ThumbsDown className="h-3 w-3" />
-                                  <span className="sr-only">Not helpful</span>
-                                </Button>
-                              </div>
+                              <AvatarImage src="/placeholder.svg" />
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                <Bot className="h-4 w-4" />
+                              </AvatarFallback>
+                            </>
+                          ) : (
+                            <>
+                              <AvatarImage src={user?.avatar || ""} />
+                              <AvatarFallback className="bg-muted">
+                                <User className="h-4 w-4" />
+                              </AvatarFallback>
                             </>
                           )}
+                        </Avatar>
+                        <div>
+                          <div
+                            className={`rounded-lg p-3 ${
+                              message.role === 'assistant'
+                                ? 'bg-muted'
+                                : 'bg-primary text-primary-foreground'
+                            }`}
+                          >
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="mb-2 space-y-2">
+                                {message.attachments.map((attachment, attachIndex) => (
+                                  attachment.type === 'image' ? (
+                                    <div key={attachIndex} className="rounded-md overflow-hidden">
+                                      <img 
+                                        src={attachment.url} 
+                                        alt={attachment.name} 
+                                        className="max-w-full h-auto max-h-40 object-cover"
+                                      />
+                                    </div>
+                                  ) : attachment.type === 'audio' ? (
+                                    <div key={attachIndex} className="rounded-md overflow-hidden bg-background/20 p-2">
+                                      <div className="flex items-center gap-2">
+                                        <FileAudio className="h-4 w-4" />
+                                        <span className="text-sm truncate">{attachment.name}</span>
+                                      </div>
+                                      <audio 
+                                        controls 
+                                        className="w-full mt-2 h-8"
+                                      >
+                                        <source src={attachment.url} type="audio/mpeg" />
+                                        Your browser does not support the audio element.
+                                      </audio>
+                                    </div>
+                                  ) : attachment.type === 'video' ? (
+                                    <div key={attachIndex} className="rounded-md overflow-hidden">
+                                      <video 
+                                        controls 
+                                        className="max-w-full h-auto max-h-40"
+                                      >
+                                        <source src={attachment.url} type="video/mp4" />
+                                        Your browser does not support the video element.
+                                      </video>
+                                    </div>
+                                  ) : (
+                                    <div key={attachIndex} className="flex items-center gap-2 bg-background/20 rounded p-2">
+                                      <FileText className="h-4 w-4" />
+                                      <span className="text-sm truncate">{attachment.name}</span>
+                                    </div>
+                                  )
+                                ))}
+                              </div>
+                            )}
+                            
+                            <div className="whitespace-pre-line">{message.content}</div>
+                            
+                            {message.role === 'user' && message.status && (
+                              <div className="flex justify-end mt-1">
+                                {message.status === 'sending' ? (
+                                  <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                                ) : message.status === 'sent' ? (
+                                  <CheckCircle className="h-3 w-3 opacity-70" />
+                                ) : (
+                                  <div className="text-xs text-destructive">Failed to send</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className={`mt-1 flex items-center text-xs text-muted-foreground gap-2 ${
+                            message.role === 'user' ? 'justify-end' : ''
+                          }`}>
+                            <span>{formatTime(message.timestamp)}</span>
+                            
+                            {message.role === 'assistant' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => copyMessage(message.content)}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                  <span className="sr-only">Copy</span>
+                                </Button>
+                                
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                  >
+                                    <ThumbsUp className="h-3 w-3" />
+                                    <span className="sr-only">Helpful</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  >
+                                    <ThumbsDown className="h-3 w-3" />
+                                    <span className="sr-only">Not helpful</span>
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {isTyping && (
-                  <div className="flex justify-start mb-4">
-                    <div className="flex gap-3 max-w-[80%]">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src="/placeholder.svg" />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="rounded-lg p-3 bg-muted">
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce"></div>
-                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  {isTyping && (
+                    <div className="flex justify-start mb-4">
+                      <div className="flex gap-3 max-w-[80%]">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src="/placeholder.svg" />
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            <Bot className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="rounded-lg p-3 bg-muted">
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce"></div>
+                            <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                
-                <div ref={endOfMessagesRef} />
+                  )}
+                  
+                  <div ref={endOfMessagesRef} className="h-1" />
+                </div>
               </ScrollArea>
             </CardContent>
             <CardFooter className="p-3 border-t">
